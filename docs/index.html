@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Paper Trading Bot - Live</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+body{font-family:system-ui,Arial;margin:0;background:#0f172a;color:#e2e8f0}
+.wrap{max-width:900px;margin:auto;padding:14px}
+h1{font-size:20px;margin:6px 0}.sub{color:#94a3b8;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.card{background:#1e293b;border-radius:12px;padding:12px}.lbl{font-size:12px;color:#94a3b8}.val{font-size:22px;font-weight:700;margin-top:4px}
+.up{color:#22c55e}.dn{color:#ef4444}table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:7px 5px;border-bottom:1px solid #334155;text-align:left}th{color:#94a3b8;font-weight:500}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px}
+h2{font-size:16px;margin:18px 0 8px}
+</style></head><body><div class="wrap">
+<h1>📈 Paper Trading Bot (virtual $1,000)</h1>
+<div class="sub" id="status">Loading…</div>
+<div class="grid">
+<div class="card"><div class="lbl">Account value</div><div class="val" id="eq">-</div></div>
+<div class="card"><div class="lbl">Total profit / loss</div><div class="val" id="pnl">-</div></div>
+<div class="card"><div class="lbl">Today P/L</div><div class="val" id="tpnl">-</div></div>
+<div class="card"><div class="lbl">Invested now</div><div class="val" id="inv">-</div></div>
+<div class="card"><div class="lbl">Free cash</div><div class="val" id="cash">-</div></div>
+<div class="card"><div class="lbl">Closed trades (wins)</div><div class="val" id="wr">-</div></div>
+</div>
+<div class="card"><canvas id="ch" height="130"></canvas></div>
+<h2>Open trades</h2><div class="card"><table id="pos"></table></div>
+<h2>Trade history (IST)</h2><div class="card"><table id="tr"></table></div>
+<p class="sub">Virtual money only. Updates every 5 min while the US market is open (about 8:00 PM–2:30 AM IST, Mon–Fri). Page refreshes itself every minute.</p>
+</div>
+<script>
+const $=id=>document.getElementById(id), f=v=>(v<0?'-$':'$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const cls=v=>v>=0?'up':'dn'; let chart;
+async function load(){
+ const s=await (await fetch('state.json?t='+Date.now())).json(), m=s.summary||{};
+ $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
+ $('eq').textContent=f(m.equity); $('pnl').innerHTML=`<span class="${cls(m.pnl)}">${f(m.pnl)} (${m.pnl_pct}%)</span>`;
+ $('tpnl').innerHTML=`<span class="${cls(m.today_pnl)}">${f(m.today_pnl)}</span>`; $('inv').textContent=f(m.invested); $('cash').textContent=f(m.cash);
+ $('wr').textContent=`${m.closed_trades} (${m.wins})`;
+ const P=Object.entries(s.positions||{}); $('pos').innerHTML='<tr><th>Stock</th><th>Since</th><th>Buy</th><th>Now</th><th>Stop</th><th>P/L</th></tr>'+(P.length?P.map(([k,p])=>{const pl=(p.last-p.entry)*p.qty;return `<tr><td>${k}</td><td>${p.time}</td><td>${p.entry.toFixed(2)}</td><td>${p.last.toFixed(2)}</td><td>${p.stop.toFixed(2)}</td><td class="${cls(pl)}">${f(pl)}</td></tr>`}).join(''):'<tr><td colspan=6>No open trades</td></tr>');
+ const T=s.trades||[]; $('tr').innerHTML='<tr><th>Time</th><th>Stock</th><th>Action</th><th>Price</th><th>P/L</th><th>Why</th></tr>'+(T.length?T.map(t=>t.side=='ENTRY'?`<tr><td>${t.time}</td><td>${t.symbol}</td><td>BUY ${f(t.amount)}</td><td>${t.entry}</td><td></td><td></td></tr>`:`<tr><td>${t.time}</td><td>${t.symbol}</td><td>SELL</td><td>${t.exit}</td><td class="${cls(t.pnl)}">${f(t.pnl)} (${t.pnl_pct}%)</td><td>${t.reason}</td></tr>`).join(''):'<tr><td colspan=6>No trades yet</td></tr>');
+ const E=s.equity||[]; const d={labels:E.map(e=>e[0].slice(5)),datasets:[{label:'Account value ($)',data:E.map(e=>e[1]),borderColor:'#38bdf8',pointRadius:0,tension:.2,fill:false}]};
+ if(chart){chart.data=d;chart.update()}else chart=new Chart($('ch'),{type:'line',data:d,options:{plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:6}},y:{ticks:{color:'#94a3b8'}}}}});
+}
+load(); setInterval(load,60000);
+</script></body></html>
