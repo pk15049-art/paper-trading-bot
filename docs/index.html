@@ -1,6 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Paper Trading Bot - Live</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 body{font-family:system-ui,Arial;margin:0;background:#0f172a;color:#e2e8f0}
 .wrap{max-width:900px;margin:auto;padding:14px}
@@ -9,6 +10,7 @@ h1{font-size:20px;margin:6px 0}.sub{color:#94a3b8;font-size:13px}
 .card{background:#1e293b;border-radius:12px;padding:12px}.lbl{font-size:12px;color:#94a3b8}.val{font-size:22px;font-weight:700;margin-top:4px}
 .up{color:#22c55e}.dn{color:#ef4444}table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{padding:7px 5px;border-bottom:1px solid #334155;text-align:left}th{color:#94a3b8;font-weight:500}
+.tab{background:#334155;border:0;color:#e2e8f0;padding:6px 12px;border-radius:8px;margin:0 6px 6px 0}.tab.on{background:#0284c7}
 .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px}
 h2{font-size:16px;margin:18px 0 8px}
 </style></head><body><div class="wrap">
@@ -23,15 +25,32 @@ h2{font-size:16px;margin:18px 0 8px}
 <div class="card"><div class="lbl">Closed trades (wins)</div><div class="val" id="wr">-</div></div>
 </div>
 <div class="card"><canvas id="ch" height="130"></canvas></div>
+<h2>Live candles (5-min, IST) with bot entries ▲ and exits ▼</h2>
+<div class="card"><div id="tabs"></div><div id="cc" style="height:340px"></div>
+<div class="sub">Blue line EMA 9, orange line EMA 21. Green ▲ = buy, red/green ▼ = sell with P/L.</div></div>
 <h2>Open trades</h2><div class="card"><table id="pos"></table></div>
 <h2>Trade history (IST)</h2><div class="card"><table id="tr"></table></div>
 <p class="sub">Virtual money only. Updates every 5 min while the US market is open (about 8:00 PM–2:30 AM IST, Mon–Fri). Page refreshes itself every minute.</p>
 </div>
 <script>
+
+let cch,cs,e9,e21,sel=null,S=null;
+function ema(d,n){const k=2/(n+1);let p;return d.map(x=>{p=p===undefined?x.close:x.close*k+p*(1-k);return{time:x.time,value:+p.toFixed(2)}})}
+function drawC(sym){sel=sym;const C=(S.candles||{})[sym]||[];const off=19800;
+ document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.s==sym));
+ if(!cch){cch=LightweightCharts.createChart($('cc'),{layout:{background:{color:'#1e293b'},textColor:'#cbd5e1'},grid:{vertLines:{color:'#273449'},horzLines:{color:'#273449'}},timeScale:{timeVisible:true,secondsVisible:false},autoSize:true});
+  cs=cch.addCandlestickSeries({upColor:'#22c55e',downColor:'#ef4444',borderVisible:false,wickUpColor:'#22c55e',wickDownColor:'#ef4444'});
+  e9=cch.addLineSeries({color:'#38bdf8',lineWidth:1,priceLineVisible:false});e21=cch.addLineSeries({color:'#f59e0b',lineWidth:1,priceLineVisible:false});}
+ const d=C.map(c=>({time:c[0]+off,open:c[1],high:c[2],low:c[3],close:c[4]}));cs.setData(d);e9.setData(ema(d,9));e21.setData(ema(d,21));
+ const bar=t=>{let b=d.length?d[0].time:0;for(const x of d){if(x.time<=t)b=x.time}return b};
+ const M=(S.trades||[]).filter(t=>t.symbol==sym&&t.ts).map(t=>t.side=='ENTRY'?{time:bar(t.ts+off),position:'belowBar',color:'#22c55e',shape:'arrowUp',text:'BUY '+t.entry}:{time:bar(t.ts+off),position:'aboveBar',color:t.pnl>=0?'#22c55e':'#ef4444',shape:'arrowDown',text:'SELL '+(t.pnl>=0?'+':'')+t.pnl}).sort((a,b)=>a.time-b.time);
+ cs.setMarkers(M);cch.timeScale().fitContent();}
+function tabs(){const k=Object.keys(S.candles||{});$('tabs').innerHTML=k.length?k.map(s=>`<button class="tab" data-s="${s}" onclick="drawC('${s}')">${s}${(S.positions||{})[s]?' ●':''}</button>`).join(''):'<span class="sub">Candles appear once the market opens.</span>';
+ if(k.length)drawC(k.includes(sel)?sel:(Object.keys(S.positions||{})[0]||k[0]));}
 const $=id=>document.getElementById(id), f=v=>(v<0?'-$':'$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const cls=v=>v>=0?'up':'dn'; let chart;
 async function load(){
- const s=await (await fetch('state.json?t='+Date.now())).json(), m=s.summary||{};
+ const s=await (await fetch('state.json?t='+Date.now())).json(), m=s.summary||{}; S=s; tabs();
  $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
  $('eq').textContent=f(m.equity); $('pnl').innerHTML=`<span class="${cls(m.pnl)}">${f(m.pnl)} (${m.pnl_pct}%)</span>`;
  $('tpnl').innerHTML=`<span class="${cls(m.today_pnl)}">${f(m.today_pnl)}</span>`; $('inv').textContent=f(m.invested); $('cash').textContent=f(m.cash);
