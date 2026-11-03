@@ -54,7 +54,7 @@ def sell(st, s, price, reason, now):
     except Exception as e: print("close err", s, e)
     pnl = (price - p["entry"]) * p["qty"]
     st["cash"] += p["qty"] * price
-    st["trades"].insert(0, {"symbol": s, "side": "EXIT", "time": now.astimezone(IST).strftime("%d %b %H:%M"),
+    st["trades"].insert(0, {"symbol": s, "side": "EXIT", "ts": int(now.timestamp()), "time": now.astimezone(IST).strftime("%d %b %H:%M"),
         "entry": round(p["entry"], 2), "exit": round(price, 2), "qty": round(p["qty"], 4),
         "pnl": round(pnl, 2), "pnl_pct": round((price / p["entry"] - 1) * 100, 2), "reason": reason})
     print(f"EXIT {s} @{price:.2f} pnl {pnl:+.2f} ({reason})")
@@ -109,13 +109,38 @@ def main():
                     st["cash"] -= amt
                     st["positions"][s] = {"qty": qty, "entry": px, "stop": px * (1 - STOP), "high": px,
                         "last": px, "time": now.astimezone(IST).strftime("%d %b %H:%M")}
-                    st["trades"].insert(0, {"symbol": s, "side": "ENTRY", "time": now.astimezone(IST).strftime("%d %b %H:%M"),
+                    st["trades"].insert(0, {"symbol": s, "side": "ENTRY", "ts": int(now.timestamp()), "time": now.astimezone(IST).strftime("%d %b %H:%M"),
                         "entry": round(px, 2), "qty": round(qty, 4), "amount": amt})
                     print(f"ENTRY {s} ${amt} @{px:.2f}")
+        # candles for chart: SPY + open positions + symbols traded in last 2 days
+        recent = {t["symbol"] for t in st["trades"] if t.get("ts", 0) > now.timestamp() - 2 * 86400}
+        show = ["SPY"] + sorted((set(st["positions"]) | recent) - {"SPY"})
+        cut = now - dt.timedelta(days=2)
+        st["candles"] = {}
+        for s in show:
+            if s not in have: continue
+            b = bars.loc[s]; b = b[b.index >= cut]
+            st["candles"][s] = [[int(ts.timestamp()), round(float(r.open), 2), round(float(r.high), 2),
+                                 round(float(r.low), 2), round(float(r.close), 2)] for ts, r in b.iterrows()]
         equity = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
         st["equity"].append([now.astimezone(IST).strftime("%Y-%m-%d %H:%M"), round(equity, 2)])
         st["equity"] = st["equity"][-3000:]; st["trades"] = st["trades"][:300]
         st["halted"] = halted
+    else:
+        try:
+            recent = {t["symbol"] for t in st["trades"] if t.get("ts", 0) > now.timestamp() - 3 * 86400}
+            show = ["SPY"] + sorted((set(st["positions"]) | recent) - {"SPY"})
+            bars = dc.get_stock_bars(StockBarsRequest(symbol_or_symbols=show,
+                    timeframe=TimeFrame(5, TimeFrameUnit.Minute), start=now - dt.timedelta(days=5),
+                    feed=DataFeed.IEX)).df
+            st["candles"] = {}
+            for s in show:
+                if s not in set(bars.index.get_level_values(0)): continue
+                b = bars.loc[s]
+                b = b[b.index >= b.index.max() - dt.timedelta(hours=30)]
+                st["candles"][s] = [[int(ts.timestamp()), round(float(r.open), 2), round(float(r.high), 2),
+                                     round(float(r.low), 2), round(float(r.close), 2)] for ts, r in b.iterrows()]
+        except Exception as e: print("candle err", e)
     eq = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
     exits = [t for t in st["trades"] if t["side"] == "EXIT"]
     st["summary"] = {"equity": round(eq, 2), "pnl": round(eq - st["budget"], 2),
