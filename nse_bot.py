@@ -1,7 +1,7 @@
-"""NSE intraday PAPER bot (simulated, no broker). Virtual capital Rs 1,00,000. Data: Yahoo Finance 5-min bars.
+"""NSE intraday PAPER bot (simulated, no broker). Virtual capital Rs 1,000 (fractional qty simulated). Data: Yahoo Finance 5-min bars.
 Same rules as the US bot: EMA9/EMA21 cross-up, RSI 50-72, above VWAP, volume above 20-bar average.
 Exits: stop -1.2%, breakeven at +1%, 1.5% trailing, target +4%, trend reversal, square-off 15:15 IST.
-Up to 5 trades at once, 20% capital each, whole shares, approx Zerodha-style intraday charges deducted.
+Up to 5 trades at once, 20% capital each, fractional quantity (simulation), approx Zerodha-style intraday charges deducted.
 Strongest signals (highest volume surge) are taken first."""
 import os, json, time, datetime as dt
 from zoneinfo import ZoneInfo
@@ -11,13 +11,16 @@ IST = ZoneInfo("Asia/Kolkata")
 SYMS = ["RELIANCE","HDFCBANK","ICICIBANK","INFY","TCS","SBIN","AXISBANK","KOTAKBANK","LT","BHARTIARTL",
         "ITC","MARUTI","BAJFINANCE","HINDUNILVR","SUNPHARMA","TITAN","ADANIENT","M&M","NTPC","TATASTEEL",
         "HCLTECH","WIPRO","ONGC","POWERGRID","JSWSTEEL"]
-BUDGET, SLOT, MAX_POS = 100000.0, 0.20, 5
+BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
 STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.04, 0.03
 STATE = "docs/nse_state.json"
 
 def load():
-    try: return json.load(open(STATE))
-    except Exception:
+    try:
+        st = json.load(open(STATE))
+        if st.get("budget") == BUDGET or st.get("trades"): return st
+    except Exception: pass
+    if True:
         return {"budget": BUDGET, "cash": BUDGET, "positions": {}, "trades": [], "equity": [], "day": None,
                 "day_start": BUDGET, "charges": 0.0, "currency": "INR", "started": dt.datetime.now(IST).isoformat()}
 
@@ -40,8 +43,18 @@ def ind(df):
     return df
 
 def fetch(now):
-    raw = yf.download([s + ".NS" for s in SYMS], period="5d", interval="5m", group_by="ticker",
-                      progress=False, threads=True, auto_adjust=False)
+    for i in range(3):
+        out = _fetch()
+        if len(out) >= 10: return out
+        print("data retry", i, len(out)); time.sleep(15 * (i + 1))
+    return out
+
+def _fetch():
+    try:
+        raw = yf.download([s + ".NS" for s in SYMS], period="5d", interval="5m", group_by="ticker",
+                      progress=False, threads=False, auto_adjust=False)
+    except Exception as e:
+        print("download err", e); return {}
     out = {}
     for s in SYMS:
         try:
@@ -74,7 +87,9 @@ def main():
     data = fetch(now) if (in_hours or not st.get("candles")) else {}
     # holiday check: no bar today after 9:25
     fresh = any(len(df) and df.index[-1].date() == now.date() for df in data.values())
-    is_open = in_hours and (fresh or now.time() < dt.time(9, 25))
+    # if data failed, trust the clock (don't stop the loop); holiday = data OK but no bar today
+    is_open = in_hours and (fresh or not data or now.time() < dt.time(9, 25))
+    st["data_ok"] = bool(data)
     st["market_open"] = bool(is_open)
     st["next_open"] = "Mon–Fri 9:15 AM IST"
     if is_open and data:
@@ -106,8 +121,9 @@ def main():
                     cands.append((b.Volume / max(b.vavg, 1), s, float(raw.Close.iloc[-1])))
             for _, s, px in sorted(cands, reverse=True):
                 if len(st["positions"]) >= MAX_POS: break
-                qty = int(min(st["budget"] * SLOT, st["cash"]) // px)
-                if qty < 1: continue
+                amt = min(st["budget"] * SLOT, st["cash"])
+                if amt < st["budget"] * 0.05: continue
+                qty = round(amt / px, 4)
                 st["cash"] -= qty * px
                 st["positions"][s] = {"qty": qty, "entry": px, "stop": px * (1 - STOP), "high": px, "last": px, "time": tstr(now)}
                 st["trades"].insert(0, {"symbol": s, "side": "ENTRY", "ts": int(now.timestamp()), "time": tstr(now),
@@ -147,4 +163,4 @@ if __name__ == "__main__":
             op = json.load(open(STATE)).get("market_open")
             if time.time() - last > 290 or not op: save(); last = time.time()
             if not op: break
-            time.sleep(60)
+            time.sleep(120)
