@@ -20,6 +20,7 @@ SYMBOLS = ["SPY","QQQ","IWM","AAPL","MSFT","NVDA","AMD","TSLA","META","AMZN","GO
            "AVGO","PLTR","COIN","UBER","JPM","BA","SHOP","MU"]
 BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
 STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.04, 0.03
+MAX_HOLD_MIN = 60  # exit any trade held longer than this
 DAY_LOCK, TIGHT_TRAIL = 0.03, 0.0075  # after +3% day: no new entries, trail tightens to 0.75%
 ET, IST = ZoneInfo("America/New_York"), ZoneInfo("Asia/Kolkata")
 STATE = "docs/state.json"
@@ -49,6 +50,15 @@ def fill_price(order_id, fallback):
         return float(o.filled_avg_price) if o.filled_avg_price else fallback
     except Exception: return fallback
 
+def stats(st):
+    k = st.setdefault("stats", None)
+    if not k:
+        ex = [t for t in st["trades"] if t["side"] == "EXIT"]
+        k = st["stats"] = {"entries": sum(1 for t in st["trades"] if t["side"] == "ENTRY"), "closed": len(ex),
+            "wins": sum(1 for t in ex if t["pnl"] > 0), "realized": sum(t["pnl"] for t in ex),
+            "best": max([t["pnl"] for t in ex], default=0), "worst": min([t["pnl"] for t in ex], default=0)}
+    return k
+
 def sell(st, s, price, reason, now):
     p = st["positions"].pop(s)
     st.setdefault("cooldown", {})[s] = int(now.timestamp())
@@ -56,6 +66,8 @@ def sell(st, s, price, reason, now):
     except Exception as e: print("close err", s, e)
     pnl = (price - p["entry"]) * p["qty"]
     st["cash"] += p["qty"] * price
+    k = stats(st); k["closed"] += 1; k["wins"] += pnl > 0; k["realized"] += pnl
+    k["best"] = max(k["best"], pnl); k["worst"] = min(k["worst"], pnl)
     st["trades"].insert(0, {"symbol": s, "side": "EXIT", "ts": int(now.timestamp()), "time": now.astimezone(IST).strftime("%d %b %H:%M"),
         "entry": round(p["entry"], 2), "exit": round(price, 2), "qty": round(p["qty"], 4),
         "pnl": round(pnl, 2), "pnl_pct": round((price / p["entry"] - 1) * 100, 2), "reason": reason})
@@ -91,6 +103,7 @@ def main():
             if eod: sell(st, s, px, "Day end", now)
             elif float(b.low) <= p["stop"]: sell(st, s, max(p["stop"], float(b.low)) if px > p["stop"] else px, "Stop/trail", now)
             elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
+            elif now.timestamp() - p.get("ts", now.timestamp()) >= MAX_HOLD_MIN * 60: sell(st, s, px, "Time limit 60 min", now)
             elif a.ema9 >= a.ema21 and b.ema9 < b.ema21: sell(st, s, px, "Trend reversed", now)
         equity = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
         halted = equity < st["day_start"] * (1 - DAY_LOSS)
@@ -114,7 +127,8 @@ def main():
                     px = fill_price(o.id, float(b.close)); qty = amt / px
                     st["cash"] -= amt
                     st["positions"][s] = {"qty": qty, "entry": px, "stop": px * (1 - STOP), "high": px,
-                        "last": px, "time": now.astimezone(IST).strftime("%d %b %H:%M")}
+                        "last": px, "ts": int(now.timestamp()), "time": now.astimezone(IST).strftime("%d %b %H:%M")}
+                    stats(st)["entries"] += 1
                     st["trades"].insert(0, {"symbol": s, "side": "ENTRY", "ts": int(now.timestamp()), "time": now.astimezone(IST).strftime("%d %b %H:%M"),
                         "entry": round(px, 2), "qty": round(qty, 4), "amount": amt})
                     print(f"ENTRY {s} ${amt} @{px:.2f}")
@@ -130,7 +144,7 @@ def main():
                                  round(float(r.low), 2), round(float(r.close), 2)] for ts, r in b.iterrows()]
         equity = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
         st["equity"].append([now.astimezone(IST).strftime("%Y-%m-%d %H:%M"), round(equity, 2)])
-        st["equity"] = st["equity"][-3000:]; st["trades"] = st["trades"][:300]
+        st["equity"] = st["equity"][-3000:]; st["trades"] = st["trades"][:1000]
         st["halted"] = halted
     else:
         try:
@@ -148,12 +162,16 @@ def main():
                                      round(float(r.low), 2), round(float(r.close), 2)] for ts, r in b.iterrows()]
         except Exception as e: print("candle err", e)
     eq = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
-    exits = [t for t in st["trades"] if t["side"] == "EXIT"]
+    exits = [t for t in st["trades"] if t["side"] == "EXIT"]; k = stats(st)
     st["summary"] = {"equity": round(eq, 2), "pnl": round(eq - st["budget"], 2),
         "pnl_pct": round((eq / st["budget"] - 1) * 100, 2), "cash": round(st["cash"], 2),
         "invested": round(sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values()), 2),
         "today_pnl": round(eq - st.get("day_start", st["budget"]), 2),
-        "closed_trades": len(exits), "wins": sum(1 for t in exits if t["pnl"] > 0)}
+        "closed_trades": k["closed"], "wins": k["wins"], "losses": k["closed"] - k["wins"],
+        "total_entries": k["entries"], "open_trades": len(st["positions"]),
+        "win_rate": round(k["wins"] / k["closed"] * 100, 1) if k["closed"] else 0,
+        "realized": round(k["realized"], 2), "best": round(k["best"], 2), "worst": round(k["worst"], 2),
+        "today_trades": sum(1 for t in exits if t["time"][:6] == now.astimezone(IST).strftime("%d %b"))}
     os.makedirs("docs", exist_ok=True)
     json.dump(st, open(STATE, "w"), indent=1)
     print("Summary", st["summary"], "market_open", st["market_open"])
