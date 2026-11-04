@@ -24,7 +24,12 @@ h2{font-size:16px;margin:18px 0 8px}
 <div class="card"><div class="lbl">Today P/L</div><div class="val" id="tpnl">-</div></div>
 <div class="card"><div class="lbl">Invested now</div><div class="val" id="inv">-</div></div>
 <div class="card"><div class="lbl">Free cash</div><div class="val" id="cash">-</div></div>
-<div class="card"><div class="lbl">Closed trades (wins)</div><div class="val" id="wr">-</div></div>
+<div class="card"><div class="lbl">Total trades taken</div><div class="val" id="ten">-</div></div>
+<div class="card"><div class="lbl">Closed: wins / losses</div><div class="val" id="wr">-</div></div>
+<div class="card"><div class="lbl">Win rate</div><div class="val" id="wrt">-</div></div>
+<div class="card"><div class="lbl">Trades closed today</div><div class="val" id="tdt">-</div></div>
+<div class="card"><div class="lbl">Booked profit / loss</div><div class="val" id="rlz">-</div></div>
+<div class="card"><div class="lbl">Best / worst trade</div><div class="val" id="bw" style="font-size:17px">-</div></div>
 <div class="card" id="chc" style="display:none"><div class="lbl">Brokerage + taxes paid</div><div class="val" id="chg">-</div></div>
 </div>
 <div class="card"><canvas id="ch" height="130"></canvas></div>
@@ -58,14 +63,15 @@ async function load(){
  $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit, no new trades today</span>':'')+(s.profit_locked?' <span class="pill" style="background:#14532d">+3% day: profit locked</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
  $('eq').textContent=f(m.equity); $('pnl').innerHTML=`<span class="${cls(m.pnl)}">${f(m.pnl)} (${m.pnl_pct}%)</span>`;
  $('tpnl').innerHTML=`<span class="${cls(m.today_pnl)}">${f(m.today_pnl)}</span>`; $('inv').textContent=f(m.invested); $('cash').textContent=f(m.cash);
- $('wr').textContent=`${m.closed_trades} (${m.wins})`; if(IN){$('chc').style.display='';$('chg').textContent=f(m.charges)}
- const P=Object.entries(s.positions||{}); $('pos').innerHTML='<tr><th>Stock</th><th>Since</th><th>Buy</th><th>Now</th><th>Stop</th><th>P/L</th></tr>'+(P.length?P.map(([k,p])=>{const pl=(p.last-p.entry)*p.qty;return `<tr><td>${k}</td><td>${p.time}</td><td>${p.entry.toFixed(2)}</td><td>${p.last.toFixed(2)}</td><td>${p.stop.toFixed(2)}</td><td class="${cls(pl)}">${f(pl)}</td></tr>`}).join(''):'<tr><td colspan=6>No open trades</td></tr>');
+ $('wr').innerHTML=`<span class="up">${m.wins||0}</span> / <span class="dn">${m.losses||0}</span>`; $('ten').textContent=m.total_entries||0; $('wrt').textContent=(m.win_rate||0)+'%'; $('tdt').textContent=m.today_trades||0;
+ $('rlz').innerHTML=`<span class="${cls(m.realized||0)}">${f(m.realized||0)}</span>`; $('bw').innerHTML=`<span class="up">${f(m.best||0)}</span> / <span class="dn">${f(m.worst||0)}</span>`; if(IN){$('chc').style.display='';$('chg').textContent=f(m.charges)}
+ const P=Object.entries(s.positions||{}); $('pos').innerHTML='<tr><th>Stock</th><th>Since</th><th>Held</th><th>Buy</th><th>Now</th><th>Stop</th><th>P/L</th></tr>'+(P.length?P.map(([k,p])=>{const pl=(p.last-p.entry)*p.qty;return `<tr><td>${k}</td><td>${p.time}</td><td>${p.ts?Math.round((Date.now()/1000-p.ts)/60)+' min':''}</td><td>${p.entry.toFixed(2)}</td><td>${p.last.toFixed(2)}</td><td>${p.stop.toFixed(2)}</td><td class="${cls(pl)}">${f(pl)}</td></tr>`}).join(''):'<tr><td colspan=7>No open trades</td></tr>');
  const T=s.trades||[]; $('tr').innerHTML='<tr><th>Time</th><th>Stock</th><th>Action</th><th>Price</th><th>P/L</th><th>Why</th></tr>'+(T.length?T.map(t=>t.side=='ENTRY'?`<tr><td>${t.time}</td><td>${t.symbol}</td><td>BUY ${f(t.amount)}</td><td>${t.entry}</td><td></td><td></td></tr>`:`<tr><td>${t.time}</td><td>${t.symbol}</td><td>SELL</td><td>${t.exit}</td><td class="${cls(t.pnl)}">${f(t.pnl)} (${t.pnl_pct}%)</td><td>${t.reason}</td></tr>`).join(''):'<tr><td colspan=6>No trades yet</td></tr>');
  const E=s.equity||[]; const d={labels:E.map(e=>e[0].slice(5)),datasets:[{label:'Account value',data:E.map(e=>e[1]),borderColor:'#38bdf8',pointRadius:0,tension:.2,fill:false}]};
  if(chart){chart.data=d;chart.update()}else chart=new Chart($('ch'),{type:'line',data:d,options:{plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:6}},y:{ticks:{color:'#94a3b8'}}}}});
 }
 $(IN?'tin':'tus').classList.add('on');
 $('ttl').textContent=IN?'📈 India NSE Paper Bot (virtual ₹1,000)':'📈 US Paper Bot (virtual $1,000)';
-$('foot').textContent='Virtual money only. Bot checks every minute while the market is open ('+(IN?'NSE 9:15 AM–3:30 PM IST, Mon–Fri; approx brokerage and taxes deducted':'US 8:00 PM–2:30 AM IST, Mon–Fri')+'). Page refreshes itself every minute.';
+$('foot').textContent='Virtual money only. Bot checks every minute while the market is open ('+(IN?'NSE 9:15 AM–3:30 PM IST, Mon–Fri; approx brokerage and taxes deducted':'US 8:00 PM–2:30 AM IST, Mon–Fri')+'). Max 5 trades at once, each closed within 60 min (stop, target, trailing or time limit). Page refreshes itself every minute.';
 load(); setInterval(load,60000);
 </script></body></html>
