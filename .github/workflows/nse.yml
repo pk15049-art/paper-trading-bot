@@ -1,0 +1,33 @@
+name: nse-bot
+on:
+  schedule:
+    - cron: "*/20 3-9 * * 1-5"
+    - cron: "30 */4 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: nse-bot
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - run: |
+          git config user.name "paper-bot"
+          git config user.email "paper-bot@users.noreply.github.com"
+      - run: python nse_bot.py
+        env:
+          LOOP: "1"
+      - name: Save dashboard data
+        if: always()
+        run: |
+          git add docs/nse_state.json
+          git commit -m "nse update" || echo "no change"
+          git pull --rebase || true
+          git push
