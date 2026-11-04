@@ -99,17 +99,24 @@ def main():
             p = st["positions"][s]
             if s not in have: continue
             df = ind(bars.loc[[s]].copy()); b, a = df.iloc[-1], df.iloc[-2]
-            px = float(b.close); p["last"] = px; p["high"] = max(p["high"], float(b.high))
+            px = float(b.close); p["last"] = px
+            # use the bar's high/low only if the bar began after our entry; an older bar's
+            # low/high happened before we bought and must not trigger the stop (fake-stop fix)
+            bar_ts = df.index[-1][1] if isinstance(df.index[-1], tuple) else df.index[-1]
+            fresh = bar_ts.timestamp() >= p.get("ts", 0)
+            hi, lo = (float(b.high), float(b.low)) if fresh else (px, px)
+            p["high"] = max(p["high"], hi)
             if p["high"] >= p["entry"] * (1 + BE_AT): p["stop"] = max(p["stop"], p["entry"])
             p["stop"] = max(p["stop"], p["high"] * (1 - trail)) if p["high"] >= p["entry"] * (1 + BE_AT) else p["stop"]
             if eod: sell(st, s, px, "Day end", now)
-            elif float(b.low) <= p["stop"]: sell(st, s, max(p["stop"], float(b.low)) if px > p["stop"] else px, "Stop/trail", now)
+            elif lo <= p["stop"]: sell(st, s, max(p["stop"], lo) if px > p["stop"] else px, "Stop/trail", now)
             elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
             elif now.timestamp() - p.get("ts", now.timestamp()) >= MAX_HOLD_MIN * 60: sell(st, s, px, "Time limit 60 min", now)
             elif a.ema9 >= a.ema21 and b.ema9 < b.ema21: sell(st, s, px, "Trend reversed", now)
         equity = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
         halted = equity < st["day_start"] * (1 - DAY_LOSS)
-        if not eod and not halted and not locked and now.hour < 15:
+        settled = (now.hour, now.minute) >= (9, 45)  # skip the first 15 min after the open (whipsaw)
+        if not eod and not halted and not locked and settled and now.hour < 15:
             for s in SYMBOLS:
                 if len(st["positions"]) >= MAX_POS: break
                 if s in st["positions"] or s not in have: continue
