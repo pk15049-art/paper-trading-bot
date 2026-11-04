@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: paper-bot
   cancel-in-progress: false
@@ -33,3 +34,11 @@ jobs:
           git commit -m "bot update" || echo "no change"
           git pull --rebase || true
           git push
+      - name: Keep running if market still open
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python -c "import json,sys; sys.exit(0 if json.load(open('docs/state.json')).get('market_open') else 1)"; then
+            gh workflow run bot.yml --ref main && echo "re-triggered"
+          fi
