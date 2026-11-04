@@ -1,27 +1,32 @@
 {
  "budget": 1000.0,
- "cash": 599.9937181884766,
- "positions": {
-  "ICICIBANK": {
-   "qty": 0.1395,
-   "entry": 1433.800048828125,
-   "stop": 1416.5944482421876,
-   "high": 1437.0,
-   "last": 1426.800048828125,
-   "ts": 1793764279,
-   "time": "04 Nov 09:21"
-  },
-  "TATASTEEL": {
-   "qty": 1.1283,
-   "entry": 177.25,
-   "stop": 175.123,
-   "high": 177.5500030517578,
-   "last": 176.0500030517578,
-   "ts": 1793765511,
-   "time": "04 Nov 09:41"
-  }
- },
+ "cash": 996.4174606033325,
+ "positions": {},
  "trades": [
+  {
+   "symbol": "TATASTEEL",
+   "side": "EXIT",
+   "ts": 1793767854,
+   "time": "04 Nov 10:20",
+   "entry": 177.25,
+   "exit": 175.77,
+   "qty": 1.1283,
+   "pnl": -1.88,
+   "pnl_pct": -0.94,
+   "reason": "Trend reversed"
+  },
+  {
+   "symbol": "ICICIBANK",
+   "side": "EXIT",
+   "ts": 1793767854,
+   "time": "04 Nov 10:20",
+   "entry": 1433.8,
+   "exit": 1423.1,
+   "qty": 0.1395,
+   "pnl": -1.7,
+   "pnl_pct": -0.85,
+   "reason": "Trend reversed"
+  },
   {
    "symbol": "TATASTEEL",
    "side": "ENTRY",
@@ -153,14 +158,26 @@
   [
    "2026-11-04 10:14",
    997.67
+  ],
+  [
+   "2026-11-04 10:16",
+   997.69
+  ],
+  [
+   "2026-11-04 10:18",
+   997.4
+  ],
+  [
+   "2026-11-04 10:20",
+   996.42
   ]
  ],
  "day": "2026-11-04",
  "day_start": 1000.0,
- "charges": 0.0,
+ "charges": 0.42,
  "currency": "INR",
  "started": "2026-11-04T08:40:03.310873+05:30",
- "last_run": "04 Nov 2026, 10:14 AM IST",
+ "last_run": "04 Nov 2026, 10:20 AM IST",
  "data_ok": true,
  "market_open": true,
  "next_open": "Mon\u2013Fri 9:15 AM IST",
@@ -765,8 +782,22 @@
     1793767200,
     1310.2,
     1310.8,
-    1308.3,
-    1308.5
+    1308.0,
+    1308.0
+   ],
+   [
+    1793767500,
+    1308.5,
+    1308.5,
+    1305.3,
+    1305.3
+   ],
+   [
+    1793767800,
+    1305.6,
+    1305.6,
+    1305.6,
+    1305.6
    ]
   ],
   "ICICIBANK": [
@@ -1363,7 +1394,21 @@
     1427.7,
     1427.9,
     1426.6,
-    1426.8
+    1427.0
+   ],
+   [
+    1793767500,
+    1427.0,
+    1427.3,
+    1423.3,
+    1423.3
+   ],
+   [
+    1793767800,
+    1423.1,
+    1423.1,
+    1423.1,
+    1423.1
    ]
   ],
   "TATASTEEL": [
@@ -1968,36 +2013,54 @@
     176.18,
     176.01,
     176.05
+   ],
+   [
+    1793767500,
+    176.17,
+    176.25,
+    175.8,
+    175.85
+   ],
+   [
+    1793767800,
+    175.77,
+    175.77,
+    175.77,
+    175.77
    ]
   ]
  },
  "summary": {
-  "equity": 997.67,
-  "pnl": -2.33,
-  "pnl_pct": -0.23,
-  "cash": 599.99,
-  "invested": 397.68,
-  "today_pnl": -2.33,
-  "closed_trades": 0,
+  "equity": 996.42,
+  "pnl": -3.58,
+  "pnl_pct": -0.36,
+  "cash": 996.42,
+  "invested": 0.0,
+  "today_pnl": -3.58,
+  "closed_trades": 2,
   "wins": 0,
-  "losses": 0,
+  "losses": 2,
   "total_entries": 2,
-  "open_trades": 2,
-  "win_rate": 0,
-  "realized": 0,
+  "open_trades": 0,
+  "win_rate": 0.0,
+  "realized": -3.58,
   "best": 0,
-  "worst": 0,
-  "today_trades": 0,
-  "charges": 0.0
+  "worst": -1.88,
+  "today_trades": 2,
+  "charges": 0.42
  },
  "stats": {
   "entries": 2,
-  "closed": 0,
+  "closed": 2,
   "wins": 0,
-  "realized": 0,
+  "realized": -3.582539396667512,
   "best": 0,
-  "worst": 0
+  "worst": -1.8798791793823488
  },
  "profit_locked": false,
- "halted": false
+ "halted": false,
+ "cooldown": {
+  "ICICIBANK": 1793767854,
+  "TATASTEEL": 1793767854
+ }
 }
