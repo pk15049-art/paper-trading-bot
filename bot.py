@@ -20,6 +20,7 @@ SYMBOLS = ["SPY","QQQ","IWM","AAPL","MSFT","NVDA","AMD","TSLA","META","AMZN","GO
            "AVGO","PLTR","COIN","UBER","JPM","BA","SHOP","MU"]
 BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
 STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.04, 0.03
+DAY_LOCK, TIGHT_TRAIL = 0.03, 0.0075  # after +3% day: no new entries, trail tightens to 0.75%
 ET, IST = ZoneInfo("America/New_York"), ZoneInfo("Asia/Kolkata")
 STATE = "docs/state.json"
 tc = TradingClient(KEY, SECRET, paper=True)
@@ -76,6 +77,9 @@ def main():
                 feed=DataFeed.IEX)).df
         have = set(bars.index.get_level_values(0))
         eod = now.hour == 15 and now.minute >= 50
+        eq0 = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
+        locked = eq0 >= st["day_start"] * (1 + DAY_LOCK); st["profit_locked"] = locked
+        trail = TIGHT_TRAIL if locked else TRAIL
         # manage open positions
         for s in list(st["positions"]):
             p = st["positions"][s]
@@ -83,14 +87,14 @@ def main():
             df = ind(bars.loc[[s]].copy()); b, a = df.iloc[-1], df.iloc[-2]
             px = float(b.close); p["last"] = px; p["high"] = max(p["high"], float(b.high))
             if p["high"] >= p["entry"] * (1 + BE_AT): p["stop"] = max(p["stop"], p["entry"])
-            p["stop"] = max(p["stop"], p["high"] * (1 - TRAIL)) if p["high"] >= p["entry"] * (1 + BE_AT) else p["stop"]
+            p["stop"] = max(p["stop"], p["high"] * (1 - trail)) if p["high"] >= p["entry"] * (1 + BE_AT) else p["stop"]
             if eod: sell(st, s, px, "Day end", now)
             elif float(b.low) <= p["stop"]: sell(st, s, max(p["stop"], float(b.low)) if px > p["stop"] else px, "Stop/trail", now)
             elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
             elif a.ema9 >= a.ema21 and b.ema9 < b.ema21: sell(st, s, px, "Trend reversed", now)
         equity = st["cash"] + sum(p["qty"] * p.get("last", p["entry"]) for p in st["positions"].values())
         halted = equity < st["day_start"] * (1 - DAY_LOSS)
-        if not eod and not halted and now.hour < 15:
+        if not eod and not halted and not locked and now.hour < 15:
             for s in SYMBOLS:
                 if len(st["positions"]) >= MAX_POS: break
                 if s in st["positions"] or s not in have: continue

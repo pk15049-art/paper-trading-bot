@@ -13,6 +13,7 @@ SYMS = ["RELIANCE","HDFCBANK","ICICIBANK","INFY","TCS","SBIN","AXISBANK","KOTAKB
         "HCLTECH","WIPRO","ONGC","POWERGRID","JSWSTEEL"]
 BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
 STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.04, 0.03
+DAY_LOCK, TIGHT_TRAIL = 0.03, 0.0075  # after +3% day: no new entries, trail tightens to 0.75%
 STATE = "docs/nse_state.json"
 
 def load():
@@ -96,20 +97,22 @@ def main():
         today = now.date().isoformat()
         if st.get("day") != today: st["day"] = today; st["day_start"] = value(st)
         eod = now.time() >= dt.time(15, 15)
+        locked = value(st) >= st["day_start"] * (1 + DAY_LOCK); st["profit_locked"] = locked
+        trail = TIGHT_TRAIL if locked else TRAIL
         for s in list(st["positions"]):
             if s not in data: continue
             df = ind(data[s]); b = df.iloc[-1]
             done = df[df.index + pd.Timedelta(minutes=5) <= now]
             px = float(b.Close); p = st["positions"][s]; p["last"] = px; p["high"] = max(p["high"], float(b.High))
             if p["high"] >= p["entry"] * (1 + BE_AT):
-                p["stop"] = max(p["stop"], p["entry"], p["high"] * (1 - TRAIL))
+                p["stop"] = max(p["stop"], p["entry"], p["high"] * (1 - trail))
             if eod: sell(st, s, px, "Day end", now)
             elif float(b.Low) <= p["stop"]: sell(st, s, p["stop"] if px > p["stop"] else px, "Stop/trail", now)
             elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
             elif len(done) > 2 and done.ema9.iloc[-2] >= done.ema21.iloc[-2] and done.ema9.iloc[-1] < done.ema21.iloc[-1]:
                 sell(st, s, px, "Trend reversed", now)
         halted = value(st) < st["day_start"] * (1 - DAY_LOSS); st["halted"] = halted
-        if not halted and now.time() < dt.time(14, 45):
+        if not halted and not locked and now.time() < dt.time(14, 45):
             cands = []
             for s, raw in data.items():
                 if s in st["positions"] or now.timestamp() - st.get("cooldown", {}).get(s, 0) < 1800: continue
