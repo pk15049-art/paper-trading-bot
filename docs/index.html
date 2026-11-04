@@ -10,11 +10,13 @@ h1{font-size:20px;margin:6px 0}.sub{color:#94a3b8;font-size:13px}
 .card{background:#1e293b;border-radius:12px;padding:12px}.lbl{font-size:12px;color:#94a3b8}.val{font-size:22px;font-weight:700;margin-top:4px}
 .up{color:#22c55e}.dn{color:#ef4444}table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{padding:7px 5px;border-bottom:1px solid #334155;text-align:left}th{color:#94a3b8;font-weight:500}
+a.tab{text-decoration:none;display:inline-block}
 .tab{background:#334155;border:0;color:#e2e8f0;padding:6px 12px;border-radius:8px;margin:0 6px 6px 0}.tab.on{background:#0284c7}
 .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px}
 h2{font-size:16px;margin:18px 0 8px}
 </style></head><body><div class="wrap">
-<h1>📈 Paper Trading Bot (virtual $1,000)</h1>
+<div><a class="tab" id="tus" href="./">🇺🇸 US stocks ($1,000)</a><a class="tab" id="tin" href="./?m=in">🇮🇳 India NSE (₹1,00,000)</a></div>
+<h1 id="ttl">📈 Paper Trading Bot</h1>
 <div class="sub" id="status">Loading…</div>
 <div class="grid">
 <div class="card"><div class="lbl">Account value</div><div class="val" id="eq">-</div></div>
@@ -23,6 +25,7 @@ h2{font-size:16px;margin:18px 0 8px}
 <div class="card"><div class="lbl">Invested now</div><div class="val" id="inv">-</div></div>
 <div class="card"><div class="lbl">Free cash</div><div class="val" id="cash">-</div></div>
 <div class="card"><div class="lbl">Closed trades (wins)</div><div class="val" id="wr">-</div></div>
+<div class="card" id="chc" style="display:none"><div class="lbl">Brokerage + taxes paid</div><div class="val" id="chg">-</div></div>
 </div>
 <div class="card"><canvas id="ch" height="130"></canvas></div>
 <h2>Live candles (5-min, IST) with bot entries ▲ and exits ▼</h2>
@@ -30,9 +33,10 @@ h2{font-size:16px;margin:18px 0 8px}
 <div class="sub">Blue line EMA 9, orange line EMA 21. Green ▲ = buy, red/green ▼ = sell with P/L.</div></div>
 <h2>Open trades</h2><div class="card"><table id="pos"></table></div>
 <h2>Trade history (IST)</h2><div class="card"><table id="tr"></table></div>
-<p class="sub">Virtual money only. Updates every 5 min while the US market is open (about 8:00 PM–2:30 AM IST, Mon–Fri). Page refreshes itself every minute.</p>
+<p class="sub" id="foot"></p>
 </div>
 <script>
+const IN=new URLSearchParams(location.search).get('m')=='in', FILE=IN?'nse_state.json':'state.json', CUR=IN?'₹':'$';
 
 let cch,cs,e9,e21,sel=null,S=null;
 function ema(d,n){const k=2/(n+1);let p;return d.map(x=>{p=p===undefined?x.close:x.close*k+p*(1-k);return{time:x.time,value:+p.toFixed(2)}})}
@@ -47,18 +51,21 @@ function drawC(sym){sel=sym;const C=(S.candles||{})[sym]||[];const off=19800;
  cs.setMarkers(M);cch.timeScale().fitContent();}
 function tabs(){const k=Object.keys(S.candles||{});$('tabs').innerHTML=k.length?k.map(s=>`<button class="tab" data-s="${s}" onclick="drawC('${s}')">${s}${(S.positions||{})[s]?' ●':''}</button>`).join(''):'<span class="sub">Candles appear once the market opens.</span>';
  if(k.length)drawC(k.includes(sel)?sel:(Object.keys(S.positions||{})[0]||k[0]));}
-const $=id=>document.getElementById(id), f=v=>(v<0?'-$':'$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const $=id=>document.getElementById(id), f=v=>(v<0?'-'+CUR:CUR)+Math.abs(v||0).toLocaleString(IN?'en-IN':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const cls=v=>v>=0?'up':'dn'; let chart;
 async function load(){
- const s=await (await fetch('state.json?t='+Date.now())).json(), m=s.summary||{}; S=s; tabs();
+ const s=await (await fetch(FILE+'?t='+Date.now())).json(), m=s.summary||{}; S=s; tabs();
  $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
  $('eq').textContent=f(m.equity); $('pnl').innerHTML=`<span class="${cls(m.pnl)}">${f(m.pnl)} (${m.pnl_pct}%)</span>`;
  $('tpnl').innerHTML=`<span class="${cls(m.today_pnl)}">${f(m.today_pnl)}</span>`; $('inv').textContent=f(m.invested); $('cash').textContent=f(m.cash);
- $('wr').textContent=`${m.closed_trades} (${m.wins})`;
+ $('wr').textContent=`${m.closed_trades} (${m.wins})`; if(IN){$('chc').style.display='';$('chg').textContent=f(m.charges)}
  const P=Object.entries(s.positions||{}); $('pos').innerHTML='<tr><th>Stock</th><th>Since</th><th>Buy</th><th>Now</th><th>Stop</th><th>P/L</th></tr>'+(P.length?P.map(([k,p])=>{const pl=(p.last-p.entry)*p.qty;return `<tr><td>${k}</td><td>${p.time}</td><td>${p.entry.toFixed(2)}</td><td>${p.last.toFixed(2)}</td><td>${p.stop.toFixed(2)}</td><td class="${cls(pl)}">${f(pl)}</td></tr>`}).join(''):'<tr><td colspan=6>No open trades</td></tr>');
  const T=s.trades||[]; $('tr').innerHTML='<tr><th>Time</th><th>Stock</th><th>Action</th><th>Price</th><th>P/L</th><th>Why</th></tr>'+(T.length?T.map(t=>t.side=='ENTRY'?`<tr><td>${t.time}</td><td>${t.symbol}</td><td>BUY ${f(t.amount)}</td><td>${t.entry}</td><td></td><td></td></tr>`:`<tr><td>${t.time}</td><td>${t.symbol}</td><td>SELL</td><td>${t.exit}</td><td class="${cls(t.pnl)}">${f(t.pnl)} (${t.pnl_pct}%)</td><td>${t.reason}</td></tr>`).join(''):'<tr><td colspan=6>No trades yet</td></tr>');
- const E=s.equity||[]; const d={labels:E.map(e=>e[0].slice(5)),datasets:[{label:'Account value ($)',data:E.map(e=>e[1]),borderColor:'#38bdf8',pointRadius:0,tension:.2,fill:false}]};
+ const E=s.equity||[]; const d={labels:E.map(e=>e[0].slice(5)),datasets:[{label:'Account value',data:E.map(e=>e[1]),borderColor:'#38bdf8',pointRadius:0,tension:.2,fill:false}]};
  if(chart){chart.data=d;chart.update()}else chart=new Chart($('ch'),{type:'line',data:d,options:{plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:6}},y:{ticks:{color:'#94a3b8'}}}}});
 }
+$(IN?'tin':'tus').classList.add('on');
+$('ttl').textContent=IN?'📈 India NSE Paper Bot (virtual ₹1,00,000)':'📈 US Paper Bot (virtual $1,000)';
+$('foot').textContent='Virtual money only. Bot checks every minute while the market is open ('+(IN?'NSE 9:15 AM–3:30 PM IST, Mon–Fri; approx brokerage and taxes deducted':'US 8:00 PM–2:30 AM IST, Mon–Fri')+'). Page refreshes itself every minute.';
 load(); setInterval(load,60000);
 </script></body></html>
