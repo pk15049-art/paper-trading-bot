@@ -183,5 +183,8 @@ if __name__ == "__main__":
             except Exception as e: print("run err", e)
             op = json.load(open(STATE)).get("market_open")
             if time.time() - last > 290 or not op: save(); last = time.time()
+            n = dt.datetime.now(IST)
+            if not op and n.weekday() < 5 and dt.time(8, 30) <= n.time() < dt.time(9, 15):
+                time.sleep(60); continue  # started before the open: wait for 9:15
             if not op: break
             time.sleep(120)

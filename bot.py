@@ -193,6 +193,9 @@ if __name__ == "__main__":
             is_open = json.load(open(STATE)).get("market_open")
             if time.time() - last_save > 290 or not is_open:
                 save(); last_save = time.time()
+            n = dt.datetime.now(ET)
+            if not is_open and n.weekday() < 5 and dt.time(8, 50) <= n.time() < dt.time(9, 30):
+                time.sleep(60); continue  # started before the open: wait for 9:30 ET
             if not is_open: break
             was_open = True
             time.sleep(60)
