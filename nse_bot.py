@@ -12,7 +12,7 @@ SYMS = ["RELIANCE","HDFCBANK","ICICIBANK","INFY","TCS","SBIN","AXISBANK","KOTAKB
         "ITC","MARUTI","BAJFINANCE","HINDUNILVR","SUNPHARMA","TITAN","ADANIENT","M&M","NTPC","TATASTEEL",
         "HCLTECH","WIPRO","ONGC","POWERGRID","JSWSTEEL"]
 BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
-STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.04, 0.03
+STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.02, 0.03
 MAX_HOLD_MIN = 60  # exit any trade held longer than this
 DAY_LOCK, TIGHT_TRAIL = 0.03, 0.0075  # after +3% day: no new entries, trail tightens to 0.75%
 STATE = "docs/nse_state.json"
@@ -42,6 +42,8 @@ def ind(df):
     tp = (df.High + df.Low + df.Close) / 3; day = df.index.date
     df["vwap"] = (tp * df.Volume).groupby(day).cumsum() / df.Volume.groupby(day).cumsum().replace(0, 1)
     df["vavg"] = df.Volume.rolling(20).mean()
+    dc = df.Close.groupby(day).last().shift(1)  # previous day's close
+    df["pdc"] = pd.Series(day, index=df.index).map(dc).values
     return df
 
 def fetch(now):
@@ -133,7 +135,7 @@ def main():
                 if len(df) < 30 or df.index[-1].date() != now.date(): continue
                 a, b = df.iloc[-2], df.iloc[-1]
                 if (a.ema9 <= a.ema21 and b.ema9 > b.ema21 and 50 < b.rsi < 72 and b.Close > b.vwap
-                        and b.Volume > b.vavg):
+                        and b.Volume > b.vavg and b.Close > b.pdc):  # trend filter: above yesterday's close
                     cands.append((b.Volume / max(b.vavg, 1), s, float(raw.Close.iloc[-1])))
             for _, s, px in sorted(cands, reverse=True):
                 if len(st["positions"]) >= MAX_POS: break

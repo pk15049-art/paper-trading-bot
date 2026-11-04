@@ -42,6 +42,8 @@ def ind(df):
     day = df.index.get_level_values("timestamp").tz_convert(ET).date
     df["vwap"] = (tp * df.volume).groupby(day).cumsum() / df.volume.groupby(day).cumsum()
     df["vavg"] = df.volume.rolling(20).mean()
+    dc = df.close.groupby(day).last().shift(1)  # previous day's close
+    df["pdc"] = pd.Series(day, index=df.index).map(dc).values
     return df
 
 def fill_price(order_id, fallback):
@@ -116,7 +118,7 @@ def main():
                 if len(df) < 30: continue
                 a, b = df.iloc[-2], df.iloc[-1]
                 if (a.ema9 <= a.ema21 and b.ema9 > b.ema21 and 50 < b.rsi < 72 and b.close > b.vwap
-                        and b.volume > b.vavg):
+                        and b.volume > b.vavg and b.close > b.pdc):  # trend filter: above yesterday's close
                     amt = round(min(st["budget"] * SLOT, st["cash"]), 2)
                     if amt < 20: continue
                     try:
