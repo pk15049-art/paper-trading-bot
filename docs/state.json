@@ -24,7 +24,7 @@
  "day": "2026-11-03",
  "day_start": 1000.0,
  "started": "2026-11-04T00:50:51.279187+05:30",
- "last_run": "04 Nov 2026, 08:41 AM IST",
+ "last_run": "04 Nov 2026, 09:00 AM IST",
  "market_open": false,
  "next_open": "04 Nov, 08:00 PM IST",
  "halted": false,
@@ -36,7 +36,15 @@
   "invested": 0,
   "today_pnl": 0.0,
   "closed_trades": 0,
-  "wins": 0
+  "wins": 0,
+  "losses": 0,
+  "total_entries": 0,
+  "open_trades": 0,
+  "win_rate": 0,
+  "realized": 0,
+  "best": 0,
+  "worst": 0,
+  "today_trades": 0
  },
  "candles": {
   "SPY": [
@@ -1168,5 +1176,13 @@
     754.29
    ]
   ]
+ },
+ "stats": {
+  "entries": 0,
+  "closed": 0,
+  "wins": 0,
+  "realized": 0,
+  "best": 0,
+  "worst": 0
  }
 }
