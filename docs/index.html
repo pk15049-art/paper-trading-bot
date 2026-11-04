@@ -54,8 +54,8 @@ function tabs(){const k=Object.keys(S.candles||{});$('tabs').innerHTML=k.length?
 const $=id=>document.getElementById(id), f=v=>(v<0?'-'+CUR:CUR)+Math.abs(v||0).toLocaleString(IN?'en-IN':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const cls=v=>v>=0?'up':'dn'; let chart;
 async function load(){
- const s=await (await fetch(FILE+'?t='+Date.now())).json(), m=s.summary||{}; S=s; tabs();
- $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
+ let s; try{s=await (await fetch('https://raw.githubusercontent.com/pk15049-art/paper-trading-bot/main/docs/'+FILE+'?t='+Date.now(),{cache:'no-store'})).json()}catch(e){s=await (await fetch(FILE+'?t='+Date.now())).json()}; const _s=s, m=s.summary||{}; S=s; tabs();
+ $('status').innerHTML=(s.market_open?'<span class="pill" style="background:#14532d">● Market open, bot running</span>':'<span class="pill" style="background:#334155">Market closed, next open '+(s.next_open||'')+'</span>')+(s.halted?' <span class="pill" style="background:#7f1d1d">Daily loss limit hit, no new trades today</span>':'')+(s.profit_locked?' <span class="pill" style="background:#14532d">+3% day: profit locked</span>':'')+'<br>Last bot run: '+(s.last_run||'-');
  $('eq').textContent=f(m.equity); $('pnl').innerHTML=`<span class="${cls(m.pnl)}">${f(m.pnl)} (${m.pnl_pct}%)</span>`;
  $('tpnl').innerHTML=`<span class="${cls(m.today_pnl)}">${f(m.today_pnl)}</span>`; $('inv').textContent=f(m.invested); $('cash').textContent=f(m.cash);
  $('wr').textContent=`${m.closed_trades} (${m.wins})`; if(IN){$('chc').style.display='';$('chg').textContent=f(m.charges)}
