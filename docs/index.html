@@ -15,7 +15,7 @@ a.tab{text-decoration:none;display:inline-block}
 .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:12px}
 h2{font-size:16px;margin:18px 0 8px}
 </style></head><body><div class="wrap">
-<div><a class="tab" id="tus" href="./">🇺🇸 US stocks ($1,000)</a><a class="tab" id="tin" href="./?m=in">🇮🇳 India NSE (₹1,00,000)</a></div>
+<div><a class="tab" id="tus" href="./">🇺🇸 US stocks ($1,000)</a><a class="tab" id="tin" href="./?m=in">🇮🇳 India NSE (₹1,000)</a></div>
 <h1 id="ttl">📈 Paper Trading Bot</h1>
 <div class="sub" id="status">Loading…</div>
 <div class="grid">
@@ -65,7 +65,7 @@ async function load(){
  if(chart){chart.data=d;chart.update()}else chart=new Chart($('ch'),{type:'line',data:d,options:{plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8',maxTicksLimit:6}},y:{ticks:{color:'#94a3b8'}}}}});
 }
 $(IN?'tin':'tus').classList.add('on');
-$('ttl').textContent=IN?'📈 India NSE Paper Bot (virtual ₹1,00,000)':'📈 US Paper Bot (virtual $1,000)';
+$('ttl').textContent=IN?'📈 India NSE Paper Bot (virtual ₹1,000)':'📈 US Paper Bot (virtual $1,000)';
 $('foot').textContent='Virtual money only. Bot checks every minute while the market is open ('+(IN?'NSE 9:15 AM–3:30 PM IST, Mon–Fri; approx brokerage and taxes deducted':'US 8:00 PM–2:30 AM IST, Mon–Fri')+'). Page refreshes itself every minute.';
 load(); setInterval(load,60000);
 </script></body></html>
