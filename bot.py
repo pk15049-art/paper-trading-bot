@@ -50,6 +50,7 @@ def fill_price(order_id, fallback):
 
 def sell(st, s, price, reason, now):
     p = st["positions"].pop(s)
+    st.setdefault("cooldown", {})[s] = int(now.timestamp())
     try: o = tc.close_position(s); price = fill_price(o.id, price)
     except Exception as e: print("close err", s, e)
     pnl = (price - p["entry"]) * p["qty"]
@@ -93,6 +94,7 @@ def main():
             for s in SYMBOLS:
                 if len(st["positions"]) >= MAX_POS: break
                 if s in st["positions"] or s not in have: continue
+                if now.timestamp() - st.get("cooldown", {}).get(s, 0) < 1800: continue
                 df = ind(bars.loc[[s]].copy())
                 if len(df) < 30: continue
                 a, b = df.iloc[-2], df.iloc[-1]
@@ -152,5 +154,23 @@ def main():
     json.dump(st, open(STATE, "w"), indent=1)
     print("Summary", st["summary"], "market_open", st["market_open"])
 
+def save(msg="bot update"):
+    import subprocess as sp
+    cmds = ["git add docs/state.json", f'git commit -q -m "{msg}"', "git pull -q --rebase", "git push -q"]
+    for c in cmds: sp.run(c, shell=True)
+
 if __name__ == "__main__":
-    main()
+    import time
+    if os.environ.get("LOOP") != "1":
+        main()
+    else:
+        t0 = time.time(); last_save = 0; was_open = False
+        while time.time() - t0 < 345 * 60:
+            try: main()
+            except Exception as e: print("run err", e)
+            is_open = json.load(open(STATE)).get("market_open")
+            if time.time() - last_save > 290 or not is_open:
+                save(); last_save = time.time()
+            if not is_open: break
+            was_open = True
+            time.sleep(60)
