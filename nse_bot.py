@@ -117,17 +117,21 @@ def main():
             if s not in data: continue
             df = ind(data[s]); b = df.iloc[-1]
             done = df[df.index + pd.Timedelta(minutes=5) <= now]
-            px = float(b.Close); p = st["positions"][s]; p["last"] = px; p["high"] = max(p["high"], float(b.High))
+            px = float(b.Close); p = st["positions"][s]; p["last"] = px
+            # only candles that STARTED after entry (entry candle's earlier high/low are pre-entry prices) + current price
+            post = df[df.index >= pd.Timestamp(p.get("ts", 0), unit="s", tz=IST)]
+            lo = min([px] + [float(x) for x in post.Low]); hi = max([px] + [float(x) for x in post.High])
+            p["high"] = max(p["high"], hi)
             if p["high"] >= p["entry"] * (1 + BE_AT):
                 p["stop"] = max(p["stop"], p["entry"], p["high"] * (1 - trail))
             if eod: sell(st, s, px, "Day end", now)
-            elif float(b.Low) <= p["stop"]: sell(st, s, p["stop"] if px > p["stop"] else px, "Stop/trail", now)
+            elif lo <= p["stop"]: sell(st, s, p["stop"] if px > p["stop"] else px, "Stop/trail", now)
             elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
             elif now.timestamp() - p.get("ts", now.timestamp()) >= MAX_HOLD_MIN * 60: sell(st, s, px, "Time limit 60 min", now)
             elif len(done) > 2 and done.ema9.iloc[-2] >= done.ema21.iloc[-2] and done.ema9.iloc[-1] < done.ema21.iloc[-1]:
                 sell(st, s, px, "Trend reversed", now)
         halted = value(st) < st["day_start"] * (1 - DAY_LOSS); st["halted"] = halted
-        if not halted and not locked and now.time() < dt.time(14, 45):
+        if not halted and not locked and dt.time(9, 30) <= now.time() < dt.time(14, 45):  # no entries in first 15 min
             cands = []
             for s, raw in data.items():
                 if s in st["positions"] or now.timestamp() - st.get("cooldown", {}).get(s, 0) < 1800: continue
