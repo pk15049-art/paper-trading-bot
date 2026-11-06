@@ -1,6 +1,7 @@
 """NSE intraday PAPER bot (simulated, no broker). Virtual capital Rs 1,000 (fractional qty simulated). Data: Yahoo Finance 5-min bars.
 Same rules as the US bot: EMA9/EMA21 cross-up, RSI 50-72, above VWAP, volume above 20-bar average.
-Exits: stop -1.2%, breakeven at +1%, 1.5% trailing, target +4%, trend reversal, square-off 15:15 IST.
+Exits (small-profit rules, 6 Nov 2026): take-profit +1%, stop-loss -0.7% (checked only on candles that began after entry),
+trend reversal, 60-min time limit, square-off 15:15 IST. 2-min cool down on a stock after each exit, max 8 entries per day.
 Up to 5 trades at once, 20% capital each, fractional quantity (simulation), approx Zerodha-style intraday charges deducted.
 Strongest signals (highest volume surge) are taken first."""
 import os, json, time, datetime as dt
@@ -12,7 +13,9 @@ SYMS = ["RELIANCE","HDFCBANK","ICICIBANK","INFY","TCS","SBIN","AXISBANK","KOTAKB
         "ITC","MARUTI","BAJFINANCE","HINDUNILVR","SUNPHARMA","TITAN","ADANIENT","M&M","NTPC","TATASTEEL",
         "HCLTECH","WIPRO","ONGC","POWERGRID","JSWSTEEL"]
 BUDGET, SLOT, MAX_POS = 1000.0, 0.20, 5
-STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.012, 0.01, 0.015, 0.02, 0.03
+STOP, BE_AT, TRAIL, TARGET, DAY_LOSS = 0.007, 0.01, 0.015, 0.01, 0.03
+COOLDOWN_SEC = 120  # 2-min cool down on the same stock after an exit
+MAX_DAY_ENTRIES = 8  # max new entries per day
 MAX_HOLD_MIN = 60  # exit any trade held longer than this
 DAY_LOCK, TIGHT_TRAIL = 0.03, 0.0075  # after +3% day: no new entries, trail tightens to 0.75%
 STATE = "docs/nse_state.json"
@@ -122,19 +125,23 @@ def main():
             post = df[df.index >= pd.Timestamp(p.get("ts", 0), unit="s", tz=IST)]
             lo = min([px] + [float(x) for x in post.Low]); hi = max([px] + [float(x) for x in post.High])
             p["high"] = max(p["high"], hi)
-            if p["high"] >= p["entry"] * (1 + BE_AT):
-                p["stop"] = max(p["stop"], p["entry"], p["high"] * (1 - trail))
+            tp = p["entry"] * (1 + TARGET)
             if eod: sell(st, s, px, "Day end", now)
             elif lo <= p["stop"]: sell(st, s, p["stop"] if px > p["stop"] else px, "Stop/trail", now)
-            elif px >= p["entry"] * (1 + TARGET): sell(st, s, px, "Target", now)
+            elif hi >= tp: sell(st, s, max(px, tp), "Target +1%", now)
             elif now.timestamp() - p.get("ts", now.timestamp()) >= MAX_HOLD_MIN * 60: sell(st, s, px, "Time limit 60 min", now)
             elif len(done) > 2 and done.ema9.iloc[-2] >= done.ema21.iloc[-2] and done.ema9.iloc[-1] < done.ema21.iloc[-1]:
                 sell(st, s, px, "Trend reversed", now)
+            if s in st["positions"] and p["high"] >= p["entry"] * (1 + BE_AT):  # raise stop only after exit checks
+                p["stop"] = max(p["stop"], p["entry"], p["high"] * (1 - trail))
         halted = value(st) < st["day_start"] * (1 - DAY_LOSS); st["halted"] = halted
-        if not halted and not locked and dt.time(9, 30) <= now.time() < dt.time(14, 45):  # no entries in first 15 min
+        day_entries = sum(1 for t in st["trades"] if t["side"] == "ENTRY"
+                          and dt.datetime.fromtimestamp(t.get("ts", 0), IST).date() == now.date())
+        st["day_entries"] = day_entries
+        if not halted and not locked and day_entries < MAX_DAY_ENTRIES and dt.time(9, 30) <= now.time() < dt.time(14, 45):  # no entries in first 15 min
             cands = []
             for s, raw in data.items():
-                if s in st["positions"] or now.timestamp() - st.get("cooldown", {}).get(s, 0) < 1800: continue
+                if s in st["positions"] or now.timestamp() - st.get("cooldown", {}).get(s, 0) < COOLDOWN_SEC: continue
                 df = ind(raw); df = df[df.index + pd.Timedelta(minutes=5) <= now]
                 if len(df) < 30 or df.index[-1].date() != now.date(): continue
                 a, b = df.iloc[-2], df.iloc[-1]
@@ -142,13 +149,13 @@ def main():
                         and b.Volume > b.vavg and b.Close > b.pdc):  # trend filter: above yesterday's close
                     cands.append((b.Volume / max(b.vavg, 1), s, float(raw.Close.iloc[-1])))
             for _, s, px in sorted(cands, reverse=True):
-                if len(st["positions"]) >= MAX_POS: break
+                if len(st["positions"]) >= MAX_POS or day_entries >= MAX_DAY_ENTRIES: break
                 amt = min(st["budget"] * SLOT, st["cash"])
                 if amt < st["budget"] * 0.05: continue
                 qty = round(amt / px, 4)
                 st["cash"] -= qty * px
                 st["positions"][s] = {"qty": qty, "entry": px, "stop": px * (1 - STOP), "high": px, "last": px, "ts": int(now.timestamp()), "time": tstr(now)}
-                stats(st)["entries"] += 1
+                stats(st)["entries"] += 1; day_entries += 1; st["day_entries"] = day_entries
                 st["trades"].insert(0, {"symbol": s, "side": "ENTRY", "ts": int(now.timestamp()), "time": tstr(now),
                     "entry": round(px, 2), "qty": qty, "amount": round(qty * px, 2)})
                 print(f"ENTRY {s} x{qty} @{px:.2f}")
