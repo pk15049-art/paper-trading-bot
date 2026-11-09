@@ -3137,7 +3137,7 @@
  "charges": 2.1,
  "currency": "INR",
  "started": "2026-11-04T08:40:03.310873+05:30",
- "last_run": "09 Nov 2026, 10:58 PM IST",
+ "last_run": "10 Nov 2026, 02:50 AM IST",
  "data_ok": false,
  "market_open": false,
  "next_open": "Mon\u2013Fri 9:15 AM IST",
@@ -4712,7 +4712,7 @@
   "realized": -3.29,
   "best": 1.01,
   "worst": -1.88,
-  "today_trades": 2,
+  "today_trades": 0,
   "charges": 2.1
  },
  "stats": {
