@@ -3013,20 +3013,40 @@
   [
    "2026-11-09 15:29",
    993.95
+  ],
+  [
+   "2026-11-10 09:15",
+   993.95
+  ],
+  [
+   "2026-11-10 09:16",
+   993.95
+  ],
+  [
+   "2026-11-10 09:17",
+   993.95
+  ],
+  [
+   "2026-11-10 09:18",
+   993.95
+  ],
+  [
+   "2026-11-10 09:19",
+   993.95
   ]
  ],
- "day": "2026-11-09",
- "day_start": 998.5499327141474,
+ "day": "2026-11-10",
+ "day_start": 993.9485647820181,
  "charges": 7.78,
  "currency": "INR",
  "started": "2026-11-06T11:58:15.212911+05:30",
- "last_run": "10 Nov 2026, 09:14 AM IST",
- "data_ok": false,
- "market_open": false,
+ "last_run": "10 Nov 2026, 09:19 AM IST",
+ "data_ok": true,
+ "market_open": true,
  "next_open": "Mon\u2013Fri 9:15 AM IST",
  "profit_locked": false,
  "halted": false,
- "day_entries": 16,
+ "day_entries": 0,
  "candles": {
   "RELIANCE": [
    [
@@ -25860,7 +25880,7 @@
   "pnl_pct": -0.61,
   "cash": 993.95,
   "invested": 0.0,
-  "today_pnl": -4.6,
+  "today_pnl": 0.0,
   "closed_trades": 37,
   "wins": 7,
   "losses": 30,
