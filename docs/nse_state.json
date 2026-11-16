@@ -1,18 +1,20 @@
 {
  "budget": 1000.0,
- "cash": 796.1888882322388,
- "positions": {
-  "POWERGRID": {
-   "qty": 0.7758,
-   "entry": 257.79998779296875,
-   "stop": 255.99538787841797,
-   "high": 258.0,
-   "last": 257.20001220703125,
-   "ts": 1794803412,
-   "time": "16 Nov 10:00"
-  }
- },
+ "cash": 995.5534382322388,
+ "positions": {},
  "trades": [
+  {
+   "symbol": "POWERGRID",
+   "side": "EXIT",
+   "ts": 1794807075,
+   "time": "16 Nov 11:01",
+   "entry": 257.8,
+   "exit": 257.25,
+   "qty": 0.7758,
+   "pnl": -0.64,
+   "pnl_pct": -0.32,
+   "reason": "Time limit 60 min"
+  },
   {
    "symbol": "POWERGRID",
    "side": "ENTRY",
@@ -5620,14 +5622,26 @@
   [
    "2026-11-16 10:57",
    995.72
+  ],
+  [
+   "2026-11-16 10:59",
+   995.8
+  ],
+  [
+   "2026-11-16 11:01",
+   995.55
+  ],
+  [
+   "2026-11-16 11:03",
+   995.55
   ]
  ],
  "day": "2026-11-16",
  "day_start": 996.190118762024,
- "charges": 2.73,
+ "charges": 2.94,
  "currency": "INR",
  "started": "2026-11-04T08:40:03.310873+05:30",
- "last_run": "16 Nov 2026, 10:57 AM IST",
+ "last_run": "16 Nov 2026, 11:03 AM IST",
  "data_ok": true,
  "market_open": true,
  "next_open": "Mon\u2013Fri 9:15 AM IST",
@@ -5776,9 +5790,16 @@
    [
     1794806700,
     1336.4,
-    1337.4,
+    1337.5,
     1336.1,
     1337.3
+   ],
+   [
+    1794807000,
+    1337.3,
+    1338.9,
+    1337.0,
+    1338.1
    ]
   ],
   "POWERGRID": [
@@ -5925,36 +5946,43 @@
    [
     1794806700,
     257.25,
-    257.3,
-    257.2,
-    257.2
+    257.35,
+    257.15,
+    257.3
+   ],
+   [
+    1794807000,
+    257.35,
+    257.35,
+    257.25,
+    257.35
    ]
   ]
  },
  "summary": {
-  "equity": 995.72,
-  "pnl": -4.28,
-  "pnl_pct": -0.43,
-  "cash": 796.19,
-  "invested": 199.54,
-  "today_pnl": -0.47,
-  "closed_trades": 13,
+  "equity": 995.55,
+  "pnl": -4.45,
+  "pnl_pct": -0.44,
+  "cash": 995.55,
+  "invested": 0.0,
+  "today_pnl": -0.64,
+  "closed_trades": 14,
   "wins": 6,
-  "losses": 7,
+  "losses": 8,
   "total_entries": 14,
-  "open_trades": 1,
-  "win_rate": 46.2,
-  "realized": -3.81,
+  "open_trades": 0,
+  "win_rate": 42.9,
+  "realized": -4.45,
   "best": 1.01,
   "worst": -1.88,
-  "today_trades": 0,
-  "charges": 2.73
+  "today_trades": 1,
+  "charges": 2.94
  },
  "stats": {
   "entries": 14,
-  "closed": 13,
+  "closed": 14,
   "wins": 6,
-  "realized": -3.809881237976138,
+  "realized": -4.446561767761297,
   "best": 1.006182495117181,
   "worst": -1.8798791793823488
  },
@@ -5969,7 +5997,8 @@
   "RELIANCE": 1794548505,
   "SBIN": 1794217362,
   "NTPC": 1794217609,
-  "WIPRO": 1794546786
+  "WIPRO": 1794546786,
+  "POWERGRID": 1794807075
  },
  "day_entries": 1
 }
